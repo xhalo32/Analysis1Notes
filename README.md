@@ -11,7 +11,8 @@ Open a Lean file under `Exercises/` and start filling in the sorries.
 You can start a text user interface (TUI) application that monitors your progress.
 
 ```
-nix-shell -A shell --run tui Exercises/Section-7-1.lean
+nix-build -A tui
+result/bin/tui Exercises/Section-7-1.lean
 ```
 
 > The interface loads only after you make changes to the file.

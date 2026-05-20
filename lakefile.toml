@@ -1,5 +1,5 @@
 name = "Analysis"
-defaultTargets = ["Analysis1Notes"]
+defaultTargets = ["Solutions"]
 
 [[require]]
 name = "mathlib"
@@ -7,4 +7,4 @@ scope = "leanprover-community"
 rev = "v4.29.0"
 
 [[lean_lib]]
-name = "Analysis1Notes"
+name = "Solutions"
