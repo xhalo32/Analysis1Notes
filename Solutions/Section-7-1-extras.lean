@@ -4,6 +4,30 @@ import Solutions.«Section-7-1»
 open Finset
 
 /-
+This is concat_sum using induction explicitly in the difference between n and p
+-/
+theorem concat_sum' {m n p:ℤ} (hmn: m ≤ n+1) (hpn : n ≤ p) (a: ℤ → ℝ) :
+  ∑ i ∈ Icc m n, a i + ∑ i ∈ Icc (n+1) p, a i = ∑ i ∈ Icc m p, a i := by
+  induction h : p - n generalizing n p with
+  | zero =>
+    have : n = p
+    · grind
+    subst this
+    nth_rw 2 [sum_of_empty (by simp)]
+    simp
+  | pred k ih =>
+    grind
+  | succ k ih =>
+    -- IH gives us that the equation holds until p - 1
+    specialize @ih n (p - 1) ?_ ?_ ?_
+    · grind
+    · grind
+    · grind
+
+    rw [show p = p - 1 + 1 by simp]
+    rw [sum_of_nonempty (by grind), ← add_assoc, ih, sum_of_nonempty (by grind)]
+
+/-
 This was my initial attempt at reformulating `finite_series_of_rearrange` without `π` and translating the pre-filled proof.
 
 Turns out that it is considerably easier to prove a "one-sided" variant with just one bijection first.
