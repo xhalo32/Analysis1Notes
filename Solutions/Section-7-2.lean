@@ -35,15 +35,22 @@ section convergence
 open Finset
 
 /--
-The sequence `S` of partial sums of `s`: `S n = s 0 + ··· + s n`.
+The sequence `S` of partial sums of `s`: `S (n + 1) = s 0 + ··· + s n`.
 -/
-def partials (s : ℕ → ℝ) (N:ℕ) : ℝ := ∑ n ∈ Icc 0 N, s n
+def partials (s : ℕ → ℝ) (N:ℕ) : ℝ := ∑ n ∈ range N, s n
 
-lemma partials_def : partials s N = ∑ n ∈ Icc 0 N, s n := rfl
+lemma partials_def : partials s N = ∑ n ∈ range N, s n := rfl
 
-theorem partials_succ (s : ℕ → ℝ) {N:ℕ} : partials s (N+1) = partials s N + s (N+1) := by
-  rw [partials_def, sum_Icc_succ_top (by simp)]
+theorem partials_succ (s : ℕ → ℝ) {N:ℕ} : partials s (N + 1) = partials s N + s N := by
+  rw [partials_def, sum_range_succ]
   rfl
+
+/-
+An alternative definition
+-/
+def partialsIcc (s : ℕ → ℝ) (N:ℕ) : ℝ := ∑ n ∈ Icc 0 N, s n
+
+lemma partialsIcc_def : partialsIcc s N = ∑ n ∈ Icc 0 N, s n := rfl
 
 /-
 Shifting
@@ -107,14 +114,13 @@ theorem hasSum_of_summable (h : Summable' s) : HasSum' s (tsum' s) := by
   rw [tsum_summable h]
   exact summable_spec h
 
-theorem Series.example_7_2_4a (N:ℕ) : partials (fun n ↦ (2:ℝ)^(-(n + 1):ℤ)) N = 1 - (2:ℝ)^(-(N + 1 : ℤ)) := by
+theorem Series.example_7_2_4a (N:ℕ) : partials (fun n ↦ (2:ℝ)^(-(n + 1):ℤ)) N = 1 - (2:ℝ)^(-(N : ℤ)) := by
   rw [partials_def]
   induction N with
   | zero =>
     norm_num
   | succ n ih =>
-    rw [sum_Icc_succ_top (by simp)]
-    rw [ih]
+    rw [sum_range_succ, ih]
     norm_cast
     simp
     ring
@@ -126,28 +132,29 @@ theorem Series.example_7_2_4b : HasSum' (fun n ↦ (2:ℝ)^(-(n + 1):ℤ)) 1 := 
   apply Tendsto.const_sub
   rw [Metric.tendsto_atTop]
   intro ε εh
-  use ⌈- Real.log ε / Real.log 2⌉₊
+  use ⌈- Real.log (ε / 2) / Real.log 2⌉₊
   intro n hn
   simp at hn
   rw [Real.dist_eq, abs_of_nonneg, sub_zero]
   · rw [Real.zpow_lt_iff_lt_log (by simp) εh]
-    calc (-(n + 1) : ℤ) * Real.log 2
-      _ < (-n : ℝ) * Real.log 2 := by simp [add_mul, Real.log_pos];
-      _ ≤ Real.log ε / Real.log 2 * Real.log 2 := by grw [← hn]; grind
-      _ = Real.log ε := by norm_num
+    zify
+    calc -n * Real.log 2
+      _ ≤ Real.log (ε/2) / Real.log 2 * Real.log 2 := by grw [← hn]; grind
+      _ = Real.log (ε/2) := by norm_num
+      _ < Real.log ε := by apply Real.log_lt_log <;> grind
   · norm_cast
     simp
 
 theorem Series.example_7_2_4c : tsum' (fun n ↦ (2:ℝ)^(-(n + 1):ℤ)) = 1 := by
   exact tsum_eq_of_hasSum example_7_2_4b
 
-theorem Series.example_7_2_4'a {N:ℕ} : partials (fun n ↦ (2:ℝ)^(n:ℤ)) N = (2:ℝ)^(N+1) - 1 := by
+theorem Series.example_7_2_4'a {N:ℕ} : partials (fun n ↦ (2:ℝ)^(n:ℤ)) N = (2:ℝ)^N - 1 := by
   rw [partials_def]
   induction N with
   | zero =>
     norm_num
   | succ n ih =>
-    rw [sum_Icc_succ_top (by simp), ih]
+    rw [sum_range_succ, ih]
     norm_cast
     grind
 
@@ -170,12 +177,12 @@ theorem Series.example_7_2_4'b : ¬ Summable' (fun n ↦ (2:ℝ)^(n:ℤ)) := by
   · intro x y h
     simp [partials_def]
     apply sum_mono_set_of_nonneg (by simp)
-    exact Icc_subset_Icc_right h
+    exact range_subset_range.mpr h
   · intro x
     use (⌈x⌉₊ + 1)
     rw [partials_def]
-    rw [sum_Icc_succ_top]
-    have : ∑ k ∈ Icc 0 ⌈x⌉₊, (2 : ℝ) ^ (k : ℤ) ≥ 0
+    rw [sum_range_succ]
+    have : ∑ k ∈ range ⌈x⌉₊, (2 : ℝ) ^ (k : ℤ) ≥ 0
     · apply sum_nonneg
       simp
     grw [this]
@@ -185,27 +192,31 @@ theorem Series.example_7_2_4'b : ¬ Summable' (fun n ↦ (2:ℝ)^(n:ℤ)) := by
       simp
       grind
     · rw [not_le] at hx
-      simp only [Nat.cast_add, Nat.cast_one]
-      have : x ≤ (⌈x⌉₊ + 1 : ℤ)
-      · simp
-        grw [← Nat.le_ceil]
-        simp
-      apply le_trans this
-      norm_cast
-      apply Nat.le_pow_self
-    · simp
+      apply le_trans (Nat.le_ceil _)
+      exact_mod_cast Nat.le_pow_self _
 
-lemma sum_Ioc_eq_partials_sub {s : ℕ → ℝ} {p q} (hpq : p ≤ q) : ∑ n ∈ Ioc p q, s n = partials s q - partials s p := by
-  simp [partials_def]
-  rw [← Ico_succ_succ_eq_Ioc]
-  rw [sum_Ico_eq_sub _ (by simpa)]
-  rw [Nat.range_eq_Icc_zero_sub_one _ (by simp), Nat.range_eq_Icc_zero_sub_one _ (by simp)]
-  rfl
+lemma sum_Ico_eq_partials_sub {s : ℕ → ℝ} {p q} (hpq : p ≤ q) : ∑ n ∈ Ico p q, s n = partials s q - partials s p := by
+  induction q, hpq using Nat.le_induction with
+  | base =>
+    simp
+  | succ q hpq ih =>
+    rw [sum_Ico_succ_top hpq, ih]
+    simp [partials_def, sum_range_succ]
+    ring
+
+lemma sum_Ioc_eq_partialsIcc_sub {s : ℕ → ℝ} {p q} (hpq : p ≤ q) : ∑ n ∈ Ioc p q, s n = partialsIcc s q - partialsIcc s p := by
+  induction q, hpq using Nat.le_induction with
+  | base =>
+    simp
+  | succ q hpq ih =>
+    rw [sum_Ioc_succ_top hpq, ih]
+    simp [partialsIcc_def, sum_Icc_succ_top]
+    ring
 
 /--
 ## Cauchy criterion for series
 
-We use `∑ n ∈ Ioc p q` so that it matches `partials s q - partials s p`.
+We use `∑ n ∈ Ico p q` so that it matches `partials s q - partials s p`.
 Also `q ≥ p` because it makes life easier.
 
 - `Filter.Tendsto.cauchySeq`
@@ -215,8 +226,8 @@ Hints:
 - ⇒-direction `apply Filter.Tendsto.cauchySeq at h` and use `Metric.cauchySeq_iff`
 - ⇐-direction: start with `apply cauchySeq_tendsto_of_complete` and use `Metric.cauchySeq_iff`
 -/
-theorem summable_iff_tail_decay_Ioc' {s : ℕ → ℝ} :
-    Summable' s ↔ ∀ ε > 0, ∃ N, ∀ p ≥ N, ∀ q ≥ p, |∑ n ∈ Ioc p q, s n| < ε := by
+theorem summable_iff_tail_decay_Ico' {s : ℕ → ℝ} :
+    Summable' s ↔ ∀ ε > 0, ∃ N, ∀ p ≥ N, ∀ q ≥ p, |∑ n ∈ Ico p q, s n| < ε := by
   constructor
   · intro h ε hε
     obtain ⟨L, h⟩ := h
@@ -227,7 +238,7 @@ theorem summable_iff_tail_decay_Ioc' {s : ℕ → ℝ} :
     refine ⟨N, ?_⟩
     intro p hp q hq
     specialize hN p hp q (by grind)
-    rw [sum_Ioc_eq_partials_sub hq, abs_sub_comm]
+    rw [sum_Ico_eq_partials_sub hq, abs_sub_comm]
     exact hN
   · intro h
     apply cauchySeq_tendsto_of_complete
@@ -238,7 +249,7 @@ theorem summable_iff_tail_decay_Ioc' {s : ℕ → ℝ} :
     refine ⟨N, ?_⟩
     intro p hp q hq
     specialize hN (min p q) (by grind) (max p q) (by grind)
-    rw [sum_Ioc_eq_partials_sub min_le_max] at hN
+    rw [sum_Ico_eq_partials_sub min_le_max] at hN
     by_cases hpq : p ≤ q
     · rw [max_eq_right hpq, min_eq_left hpq, abs_sub_comm] at hN
       exact hN
@@ -248,9 +259,9 @@ theorem summable_iff_tail_decay_Ioc' {s : ℕ → ℝ} :
 /-
 This is a more standard version, expressed as a corollary
 -/
-theorem summable_iff_tail_decay_Ioc {s : ℕ → ℝ} :
-    Summable' s ↔ ∀ ε > 0, ∃ N, ∀ p ≥ N, ∀ q ≥ N, |∑ n ∈ Ioc p q, s n| < ε := by
-  rw [summable_iff_tail_decay_Ioc']
+theorem summable_iff_tail_decay_Ico {s : ℕ → ℝ} :
+    Summable' s ↔ ∀ ε > 0, ∃ N, ∀ p ≥ N, ∀ q ≥ N, |∑ n ∈ Ico p q, s n| < ε := by
+  rw [summable_iff_tail_decay_Ico']
   constructor
   · intro h ε hε
     specialize h ε hε
@@ -259,42 +270,39 @@ theorem summable_iff_tail_decay_Ioc {s : ℕ → ℝ} :
     intro p hp q hq
     by_cases hpq : p ≤ q
     · exact h p hp q hpq
-    · simpa [show Ioc p q = ∅ by grind]
-  · intro h ε hε
-    specialize h ε hε
-    obtain ⟨N, h⟩ := h
-    refine ⟨N, ?_⟩
-    grind
-
-/-
-Ico version for completeness
--/
-theorem summable_iff_tail_decay_Ico {s : ℕ → ℝ} :
-    Summable' s ↔ ∀ ε > 0, ∃ N, ∀ p ≥ N, ∀ q ≥ N, |∑ n ∈ Ico p q, s n| < ε := by
-  rw [summable_iff_tail_decay_Ioc']
-  constructor
-  · intro h ε hε
-    specialize h ε hε
-    obtain ⟨N, h⟩ := h
-    refine ⟨N + 1, ?_⟩
-    intro p hp q hq
-    by_cases hpq : p ≤ q
-    · rw [← Ioc_sub_one_sub_one_eq_Ico_of_not_isMin (by simp; grind)]
-      exact h (p - 1) (by grind) (q - 1) (by grind)
     · simpa [show Ico p q = ∅ by grind]
   · intro h ε hε
     specialize h ε hε
     obtain ⟨N, h⟩ := h
     refine ⟨N, ?_⟩
-    simp_rw [← Ico_add_one_add_one_eq_Ioc]
     grind
 
--- lemma Finset.sum_Ioc_eq_Icc_succ_bot [AddCommMonoid β] {n m:ℕ} (a: ℕ → β) : ∑ i ∈ Ioc m n, a i = ∑ i ∈ Icc (m + 1) n, a i := by
---   have : Ioc m n = Icc (m + 1) n
---   · exact?
+/-
+Ioc version for completeness
+-/
+theorem summable_iff_tail_decay_Ioc {s : ℕ → ℝ} :
+    Summable' s ↔ ∀ ε > 0, ∃ N, ∀ p ≥ N, ∀ q ≥ N, |∑ n ∈ Ioc p q, s n| < ε := by
+  rw [summable_iff_tail_decay_Ico']
+  constructor
+  · intro h ε hε
+    specialize h ε hε
+    obtain ⟨N, h⟩ := h
+    refine ⟨N, ?_⟩
+    intro p hp q hq
+    by_cases hpq : p ≤ q
+    · simp_rw [← Ico_add_one_add_one_eq_Ioc]
+      grind
+    · simpa [show Ioc p q = ∅ by grind]
+  · intro h ε hε
+    specialize h ε hε
+    obtain ⟨N, h⟩ := h
+    refine ⟨N + 1, ?_⟩
+    intro p hp q hq
+    rw [← Ioc_sub_one_sub_one_eq_Ico_of_not_isMin (by simp; grind)]
+    exact h (p - 1) (by grind) (q - 1) (by grind)
 
 /-
-This is the standard version
+This is the standard (Icc) version
 -/
 theorem summable_iff_tail_decay {s : ℕ → ℝ} :
     Summable' s ↔ ∀ ε > 0, ∃ N, ∀ p ≥ N, ∀ q ≥ N, |∑ n ∈ Icc p q, s n| < ε := by
@@ -332,6 +340,32 @@ theorem decay_of_summable {s : ℕ → ℝ} (h : Summable' s) : Tendsto s atTop 
 theorem diverges_of_nodecay {s : ℕ → ℝ} (h : ¬ Tendsto s atTop (𝓝 0)) : ¬ Summable' s := by
   contrapose h
   exact decay_of_summable h
+
+/-
+Equivalent definition of convergence using partialsIcc.
+
+The ⇒ proof is easy with subsequence convergence, ⇐ is straight-forward `Metric.tendsto_atTop`
+-/
+theorem hasSum_partialsIcc : HasSum' s L ↔ Tendsto (partialsIcc s) atTop (𝓝 L) := by
+  change Tendsto (fun _ => _) _ _ ↔ Tendsto (fun _ => _) _ _
+  simp_rw [partialsIcc_def, partials_def, range_eq_Ico]
+  constructor
+  · intro h
+    apply tendsto_iff_seq_tendsto.mp h (· + 1) (tendsto_add_atTop_nat 1)
+  · intro h
+    rw [Metric.tendsto_atTop] at *
+    intro ε hε
+    specialize h ε hε
+    obtain ⟨N, h⟩ := h
+    refine ⟨N + 1, ?_⟩
+    intro n hn
+    specialize h (n - 1) (by grind)
+    rw [Icc_sub_one_right_eq_Ico_of_not_isMin (by simp; grind)] at h
+    exact h
+
+theorem summable_partialsIcc : Summable' s ↔ ∃ L, Tendsto (partialsIcc s) atTop (𝓝 L) := by
+  simp_rw [← hasSum_partialsIcc]
+  rfl
 
 theorem Series.example_7_2_7 : ¬ Summable' (fun _ ↦ 1) := by
   apply diverges_of_nodecay
@@ -405,19 +439,19 @@ theorem abs_tsum_le (h : Summable' |s|) : |tsum' s| ≤ tsum' |s| := by
 /-
 These lemmas are useful in my proof of the alternating series test
 -/
-lemma dist_partials_eq {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) {m} : dist (partials (fun n => (-1) ^ n * a n) (2 * m)) (partials (fun n => (-1) ^ n * a n) (2 * m + 1)) = a (2 * m + 1) := by
+lemma dist_partialsIcc_eq {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) {m} : dist (partialsIcc (fun n => (-1) ^ n * a n) (2 * m)) (partialsIcc (fun n => (-1) ^ n * a n) (2 * m + 1)) = a (2 * m + 1) := by
   rw [Real.dist_eq, abs_sub_comm]
-  simp [← sum_Ioc_eq_partials_sub]
+  simp [← sum_Ioc_eq_partialsIcc_sub]
   apply a_nonneg
 
-lemma partials_even_succ_le {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) {m} : partials (fun n => (-1 : ℝ) ^ n * a n) (2 * m + 1) ≤ partials (fun n => (-1) ^ n * a n) (2 * m) := by
-  simp [partials_def, sum_Icc_succ_top]
+lemma partialsIcc_even_succ_le {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) {m} : partialsIcc (fun n => (-1 : ℝ) ^ n * a n) (2 * m + 1) ≤ partialsIcc (fun n => (-1) ^ n * a n) (2 * m) := by
+  simp [partialsIcc_def, sum_Icc_succ_top]
   rw [Odd.neg_one_pow (by grind)]
   simp
   apply a_nonneg
 
-lemma partials_odd_le_succ {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) {m} : partials (fun n => (-1 : ℝ) ^ n * a n) (2 * m + 1) ≤ partials (fun n => (-1) ^ n * a n) (2 * m + 2) := by
-  simp [partials_def, sum_Icc_succ_top]
+lemma partialsIcc_odd_le_succ {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) {m} : partialsIcc (fun n => (-1 : ℝ) ^ n * a n) (2 * m + 1) ≤ partialsIcc (fun n => (-1) ^ n * a n) (2 * m + 2) := by
+  simp [partialsIcc_def, sum_Icc_succ_top]
   rw [Even.neg_one_pow (by grind)]
   simp
   apply a_nonneg
@@ -428,6 +462,7 @@ lemma partials_odd_le_succ {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) {m} : partials
 My proof roughly follows https://en.wikipedia.org/wiki/Alternating_series_test#Proof_of_the_alternating_series_test
 
 We denote the partial sums with `Sₙ = ∑ m ∈ 0..n, (-1)ᵐ aₘ`.
+Notice that we need to use the `partialsIcc` definition via `summable_partialsIcc` for following to work.
 
 We start by defining sequences for the odd and even partial sums.
 
@@ -449,7 +484,8 @@ The following API is useful
 -/
 theorem summable_alternating_of_antitone {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) (a_antitone : Antitone a) (a_tendsto_zero : Tendsto a atTop (𝓝 0))
     : Summable' (fun n => (-1)^n * a n) := by
-  let S := partials (fun m => (-1)^m * a m)
+  rw [summable_partialsIcc]
+  let S := partialsIcc (fun m => (-1)^m * a m)
 
   -- even needs to start at zero otherwise it includes partials 0 = a₀
   -- even: 0, a₀ - a₁, a₀ - a₁, a₀ - a₁ + a₂ - a₃, a₀ - a₁ + a₂ - a₃, ...
@@ -473,7 +509,7 @@ theorem summable_alternating_of_antitone {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) 
     by_cases hn : Odd n
     · obtain ⟨n, rfl⟩ := hn
       simp [show (2 * n + 1) / 2 = n by omega]
-      rw [← neg_sub, ← sum_Ioc_eq_partials_sub]
+      rw [← neg_sub, ← sum_Ioc_eq_partialsIcc_sub]
       · simp
         rw [Odd.neg_one_pow (by grind)]
         simp
@@ -483,9 +519,9 @@ theorem summable_alternating_of_antitone {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) 
       simp [← two_mul]
       split
       · subst n
-        simp [partials_def]
+        simp [partialsIcc_def]
       · simp [show (2 * n - 1) / 2 = n - 1 by omega, show 2 * (n - 1) + 1 = 2 * n - 1 by omega]
-        rw [← sum_Ioc_eq_partials_sub (by simp), show Ioc (2 * n - 1) (2 * n) = {2 * n} by grind]
+        rw [← sum_Ioc_eq_partialsIcc_sub (by simp), show Ioc (2 * n - 1) (2 * n) = {2 * n} by grind]
         simp
 
   -- We don't need to unfold partials after this point
@@ -514,17 +550,17 @@ theorem summable_alternating_of_antitone {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) 
       have : a (n + 1) ≤ a n := a_antitone (by simp)
       linarith
 
-  have partials_eq_even {m} (hm : Odd m) : partials (fun n => (-1)^n * a n) m = even m
+  have partials_eq_even {m} (hm : Odd m) : partialsIcc (fun n => (-1)^n * a n) m = even m
   · obtain ⟨n, rfl⟩ := hm
     unfold even S
     simp
 
-  have partials_eq_odd {m} (hm : Even m) : partials (fun n => (-1)^n * a n) m = odd m
+  have partials_eq_odd {m} (hm : Even m) : partialsIcc (fun n => (-1)^n * a n) m = odd m
   · obtain ⟨n, rfl⟩ := hm
     unfold odd S
     simp +arith
 
-  have partials_one_le_odd {m} : partials (fun n => (-1)^n * a n) 1 ≤ partials (fun n => (-1)^n * a n) (2 * m + 1)
+  have partials_one_le_odd {m} : partialsIcc (fun n => (-1)^n * a n) 1 ≤ partialsIcc (fun n => (-1)^n * a n) (2 * m + 1)
   · rw [partials_eq_even (by simp), partials_eq_even (by simp)]
     exact even_mono (by simp)
 
@@ -556,7 +592,6 @@ theorem summable_alternating_of_antitone {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) 
     exact a_tendsto_zero
 
   use L
-  unfold HasSum'
 
   apply Tendsto.squeeze lim_odd lim_even
   · intro n
@@ -699,57 +734,73 @@ theorem Ico_disjoint_Ico_of_le {d : α} (hbc : b ≤ c) : Disjoint (Ico a b) (Ic
     (by grind) (mem_Ico.1 h2)
 end
 
+/-
+Grouping (without the requirement that φ 0 = 0).
+
+The φ 0 requirement is only needed when actually comparing the sums.
+It's not needed for convergence of the series.
+-/
 theorem sum_grouped {a : ℕ → ℝ} {φ : ℕ → ℕ} (hφ : StrictMono φ) {p q : ℕ}
-  : ∑ n ∈ Icc p q, ∑ k ∈ Ico (φ n) (φ (n + 1)), a k =
-    ∑ k ∈ Ico (φ p) (φ (q + 1)), a k := by
+  : ∑ n ∈ Ico p q, ∑ k ∈ Ico (φ n) (φ (n + 1)), a k =
+    ∑ k ∈ Ico (φ p) (φ q), a k := by
   by_cases hpq : p ≤ q
   · induction q, hpq using Nat.le_induction with
   | base =>
     simp
   | succ q hpq ih =>
-    rw [sum_Icc_succ_top (by grind), ih, ← sum_union, Ico_union_Ico_eq_Ico]
+    rw [sum_Ico_succ_top (by grind), ih, ← sum_union, Ico_union_Ico_eq_Ico]
     · apply hφ.monotone
       grind
     · apply hφ.monotone
       grind
     · simp
   · rw [not_le] at hpq
-    have : φ (q + 1) ≤ φ p
+    have : φ q ≤ φ p
     · apply hφ.monotone
       omega
-    simp [hpq, this]
+    simp [hpq.le, this]
 
-lemma partials_grouped {a : ℕ → ℝ} {φ : ℕ → ℕ} (hφ : StrictMono φ) : partials (fun n => ∑ k ∈ Ico (φ n) (φ (n + 1)), a k) N = ∑ k ∈ Ico (φ 0) (φ (N + 1)), a k := by
-  rw [partials_def, sum_grouped hφ]
-
--- It seems like partials should really be defined over an Ico or Fin
-def partials' (s : ℕ → ℝ) (N:ℕ) : ℝ := ∑ n ∈ Ico 0 N, s n
-lemma partials'_def : partials' s N = ∑ n ∈ Ico 0 N, s n := rfl
-
-theorem hasSum_partials' : HasSum' s L ↔ Tendsto (partials' s) atTop (𝓝 L) := by
-  constructor
-  · intro h
-    sorry
-  sorry
-
--- however, now grouping needs to start at 0
+lemma partials_grouped {a : ℕ → ℝ} {φ : ℕ → ℕ} (hφ : StrictMono φ) : partials (fun n => ∑ k ∈ Ico (φ n) (φ (n + 1)), a k) N = ∑ k ∈ Ico (φ 0) (φ N), a k := by
+  rw [partials_def, range_eq_Ico, sum_grouped hφ]
 
 /-
 This is an immediate consequence of convergence of subsequences `tendsto_iff_seq_tendsto`
 -/
 theorem hasSum_grouped {φ : ℕ → ℕ} (hφ : StrictMono φ) (hφ0 : φ 0 = 0) (h : HasSum' a L) : HasSum' (fun n => ∑ k ∈ Ico (φ n) (φ (n + 1)), a k) L := by
-  have h2 : Tendsto (fun x => φ (x + 1)) atTop atTop
-  · apply Tendsto.comp hφ.tendsto_atTop
-    exact tendsto_add_atTop_nat 1
-
-  rw [hasSum_partials'] at h
   change Tendsto (fun _ => _) _ _
-  simp_rw [partials_grouped hφ, hφ0]
-  exact tendsto_iff_seq_tendsto.mp h _ h2
+  simp_rw [partials_grouped hφ, hφ0, ← range_eq_Ico]
+  exact tendsto_iff_seq_tendsto.mp h _ hφ.tendsto_atTop
 
+-- This `summable_grouped` is a direct consequence of `hasSum_grouped`, however hφ0 is an unnecessary assumption
+example {φ : ℕ → ℕ} (hφ : StrictMono φ) (hφ0 : φ 0 = 0) (h : Summable' a) : Summable' (fun n => ∑ k ∈ Ico (φ n) (φ (n + 1)), a k) := by
+  obtain ⟨L, h⟩ := h
+  use L
+  exact hasSum_grouped hφ hφ0 h
+
+/-
+This is quite easy to prove with Cauchy criterion and `sum_grouped`
+-/
+theorem summable_grouped {φ : ℕ → ℕ} (hφ : StrictMono φ) (h : Summable' a) : Summable' (fun n => ∑ k ∈ Ico (φ n) (φ (n + 1)), a k) := by
+  rw [summable_iff_tail_decay_Ico] at h ⊢
+  intro ε hε
+  specialize h ε hε
+  obtain ⟨N, h⟩ := h
+  refine ⟨N, ?_⟩
+  intro p hp q hq
+  simp_rw [sum_grouped hφ]
+  apply h (φ p) ?_ (φ q) ?_
+  · grw [← hφ.le_apply]
+    linarith
+  · grw [← hφ.le_apply]
+    linarith
+
+/-
+The other direction is more challenging.
+
+Hint: show `Ico p q ⊆ Ico (φ N) (φ q)` and use `sum_mono_set_of_nonneg`
+-/
 theorem summable_of_summable_grouped (a_nonneg : 0 ≤ a) {φ : ℕ → ℕ} (hφ : StrictMono φ) (h : Summable' (fun n => ∑ k ∈ Ico (φ n) (φ (n + 1)), a k)) : Summable' a := by
-  rw [summable_iff_tail_decay] at h
-  rw [summable_iff_tail_decay_Ico]
+  rw [summable_iff_tail_decay_Ico] at h ⊢
   intro ε hε
   specialize h ε hε
   obtain ⟨N, h⟩ := h
@@ -759,14 +810,13 @@ theorem summable_of_summable_grouped (a_nonneg : 0 ≤ a) {φ : ℕ → ℕ} (h�
   specialize h N le_rfl q ?_
   · apply le_trans hφ.le_apply
     exact hq
-  have : Ico p q ⊆ Ico (φ N) (φ (q + 1))
+  have : Ico p q ⊆ Ico (φ N) (φ q)
   · intro n hn
     simp at hn
     simp
     constructor
     · linarith
-    · grw [← hφ.add_le_nat]
-      have : 1 ≤ φ 1 := hφ.le_apply
+    · grw [← hφ.le_apply]
       linarith
   have := sum_mono_set_of_nonneg a_nonneg this
   simp only at this
@@ -784,11 +834,9 @@ theorem summable_iff_summable_grouped (a_nonneg : 0 ≤ a) {φ : ℕ → ℕ} (h
   · exact summable_of_summable_grouped a_nonneg hφ
   · exact summable_grouped hφ
 
-theorem tsum_eq_tsum_grouped {φ : ℕ → ℕ} (hφ : StrictMono φ) (h : Summable' a) : tsum' a = tsum' (fun n => ∑ k ∈ Ico (φ n) (φ (n + 1)), a k) := by
-  have h1 := partials_tendsto_of_summable h
-  have h2 := partials_tendsto_of_summable (summable_grouped hφ h)
-
-  sorry
+theorem tsum_eq_tsum_grouped {φ : ℕ → ℕ} (hφ : StrictMono φ) (hφ0 : φ 0 = 0) (h : Summable' a) : tsum' a = tsum' (fun n => ∑ k ∈ Ico (φ n) (φ (n + 1)), a k) := by
+  obtain ⟨L, h⟩ := h
+  rw [tsum_eq_of_hasSum (hasSum_grouped hφ hφ0 h), tsum_eq_of_hasSum h]
 
 theorem example_7_2_13.b : ¬ Summable' |s| := by
   let φ n := 2^n
@@ -893,40 +941,41 @@ theorem summable_of_condensed (a_nonneg : 0 ≤ a) (a_anti : Antitone a) (h : Su
     simp
     apply a_nonneg
 
-#check summable_div_const_iff
-
-lemma sum_div_two {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) (h : p ≤ q) : ∑ n ∈ Ioc p q, a (n / 2) ≤ ∑ i ∈ Ioc (p / 2) (q / 2 + 1), a i * 2 := by
-  induction q, h using Nat.le_induction with
-  | base =>
+lemma sum_div_two {a : ℕ → ℝ} (a_nonneg : 0 ≤ a) (h : p ≤ q) : ∑ n ∈ Icc p q, a (n / 2) ≤ ∑ i ∈ Icc (p / 2) (q / 2), a i * 2 := by
+  have : Icc p q ⊆ Icc (2*(p/2)) (2*(q/2)+1)
+  · intro n hn
     simp
-    have : 0 ≤ a (p / 2)
-    · apply a_nonneg
-    linarith
+    grind
+  grw [sum_le_sum_of_subset_of_nonneg this (by intros; apply a_nonneg)]
+  clear this
+  have h2 : p/2 ≤ q/2
+  · omega
+  clear h
+  generalize p/2 = p' at *
+  generalize q/2 = q' at *
+  induction q', h2 using Nat.le_induction with
+  | base =>
+    rw [sum_Icc_succ_top (by simp)]
+    simp
+    grind
   | succ q hmn ih =>
-    grw [sum_Icc_succ_top, ih]
+    simp [mul_add]
+    grw [sum_Icc_succ_top (by grind), sum_Icc_succ_top (by grind), ih, sum_Icc_succ_top (by grind)]
+    rw [add_assoc]
+    simp
 
-    by_cases hq : Even (q + 1)
-    · rw [show (q + 1)/2 = q/2 + 1 by grind]
-      rw [sum_Icc_succ_top, sum_Icc_succ_top, sum_Icc_succ_top]
-      ·
-      · grind
-    · rw [show (q + 1)/2 = q/2 by grind]
-      · simp [show (q + 1)/2 = q/2 by grind]
-        have : 0 ≤ a (q / 2 + 1)
-        · apply a_nonneg
-        linarith
-      · grind
-      · grind
+    rw [show (2*q + 1 + 1)/2 = q + 1 by grind]
+    rw [show (2*q + 2 + 1)/2 = q + 1 by grind]
+    rw [mul_two]
 
--- theorem summable_div_const (hc : 0 < c) (h : Summable' a) : Summable' (fun n => a (n / c)) := by
 theorem summable_div_two (a_nonneg : 0 ≤ a) (h : Summable' a) : Summable' (fun n => a (n / 2)) := by
-  rw [summable_iff_tail_decay_Ioc'] at h ⊢
+  rw [summable_iff_tail_decay] at h ⊢
   intro ε hε
   specialize h (ε / 2) (div_pos hε (by simp))
   obtain ⟨N, h⟩ := h
   refine ⟨2 * N, ?_⟩
   intro p hp q hq
-  specialize h (p / 2) ?_ (q / 2 + 1) ?_
+  specialize h (p / 2) ?_ (q / 2) ?_
   · grw [hp]
     rw [mul_div_cancel_left₀]
     grind
@@ -934,8 +983,11 @@ theorem summable_div_two (a_nonneg : 0 ≤ a) (h : Summable' a) : Summable' (fun
     grind
   rw [abs_of_nonneg] at h ⊢
   · rw [lt_div_iff₀ (by simp), sum_mul] at h
-    grw [sum_div_two a_nonneg hq]
-    exact h
+    by_cases hpq : p ≤ q
+    · grw [sum_div_two a_nonneg hpq]
+      exact h
+    · rw [not_le] at hpq
+      simp [hpq, hε]
   · apply sum_nonneg
     intro i hi
     apply a_nonneg
@@ -946,18 +998,15 @@ theorem summable_div_two (a_nonneg : 0 ≤ a) (h : Summable' a) : Summable' (fun
 /-
 The other direction is pretty much the same proof but we apply the trick of duplicating each element in the series with `fun n => a (n / 2)`
 
-Hints:
+Start with `have h := summable_grouped hφ (summable_div_two a_nonneg h)`
 -/
-theorem summable_condensed (a_nonneg : 0 ≤ a) (a_anti : Antitone a) (h : Summable' a) : Summable' (fun n => 2^n * a (2^n)):= by
+theorem summable_condensed (a_nonneg : 0 ≤ a) (a_anti : Antitone a) (h : Summable' a) : Summable' (fun n => 2^n * a (2^n)) := by
   let φ n := 2^n
   have hφ : StrictMono φ
   · apply strictMono_nat_of_lt_succ
     grind
 
-  have h : Summable' (fun n => a (n / 2))
-  · sorry
-
-  apply summable_grouped hφ at h
+  have h := summable_grouped hφ (summable_div_two a_nonneg h)
 
   rw [summable_iff_tail_decay] at h ⊢
   intro ε hε
@@ -992,18 +1041,49 @@ theorem summable_condensed (a_nonneg : 0 ≤ a) (a_anti : Antitone a) (h : Summa
     apply a_nonneg
 
 
+theorem summable_iff_condensed (a_nonneg : 0 ≤ a) (a_anti : Antitone a) : Summable' a ↔ Summable' (fun n => 2^n * a (2^n)) := by
+  exact ⟨summable_condensed a_nonneg a_anti, summable_of_condensed a_nonneg a_anti⟩
 
 /-
 Prove that the alternating series is not absolutely convergent using the condensation test
 -/
 theorem example_7_2_13.b' : ¬ Summable' |s| := by
-  let φ n := 2^n
-  have hφ : StrictMono φ
-  · apply strictMono_nat_of_lt_succ
-    grind
-
   intro hf
-  -- apply summable_condensation hφ at hf
+  rw [summable_iff_condensed] at hf
+  · have h := decay_of_summable hf
+    rw [Metric.tendsto_atTop] at h
+    specialize h (1/2) (by linarith)
+    obtain ⟨N, h⟩ := h
+    specialize h N le_rfl
+    unfold s at h
+    simp [abs_div] at h
+    rw [← div_eq_mul_inv, inv_eq_one_div] at h
+    rw [div_lt_div_iff₀, one_mul] at h
+    · rw [abs_of_nonneg (by exact_mod_cast by simp)] at h
+      have : (2:ℝ)^N + 1 ≤ 2^N * 2
+      · exact_mod_cast by simp
+      linarith
+    · exact_mod_cast by simp
+    · simp
+  · exact abs_nonneg _
+  · intro a b hab
+    simp [s, abs_div]
+    rw [inv_le_inv₀ (by exact_mod_cast by simp) (by exact_mod_cast by simp)]
+    exact_mod_cast by linarith
+
+lemma partials_add : partials (s + t) n = partials s n + partials t n := by
+  simp [partials_def, sum_add_distrib]
+
+theorem hasSum_add (hs : HasSum' s a) (ht : HasSum' t b) : HasSum' (s + t) (a + b) := by
+  unfold HasSum'
+  change Tendsto (fun _ => _) _ _
+  simp_rw [partials_add]
+  exact Tendsto.add hs ht
+
+theorem summable_add (hs : Summable' s) (ht : Summable' t) : Summable' (s + t) := by
+  obtain ⟨a, hs⟩ := hs
+  obtain ⟨b, ht⟩ := ht
+  exact ⟨a + b, hasSum_add hs ht⟩
 
 #check tendsto_le_of_eventuallyLE
 
