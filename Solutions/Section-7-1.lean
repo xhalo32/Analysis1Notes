@@ -10,6 +10,8 @@ I renamed and made other alterations to the exercises.
 
 The idea of definition 7.1.6 probably was to transport the theorems `finite_series_eq`, however it's very tedious to use as one has to pass in the bijection whose existence comes from `exist_bijection`.
 Therefore I've made the decision to focus on the API provided by mathlib rather than building our own.
+
+TODO split the sections into their own files in the Section-7-1 directory
 -/
 
 open Finset
