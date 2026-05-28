@@ -20,7 +20,7 @@ The chapter is also split into subchapters as the solutions file would otherwise
 1. Convergence: definition of partial sums, convergence of series (i.e. summability), absolute convergence, series laws
 2. Alternating series test. This deserves its own file
 3. Regrouping terms to form a new series
-4. Cauchy condensation test (optional). This is not in Tao's material, but I found it a fun exercise.
+4. Cauchy condensation test (optional). This is not in Tao's material (in section 7-2), but I found it a fun exercise. In the book this is in the next section.
 5. Telescoping series (optional).
 
 The series laws have been placed into 1-Convergence due to their simplicity.
@@ -51,49 +51,43 @@ First we need to learn about the `SummationFilter`.
 
 ## Summation filters
 
-TODO
+Summation filters come in multiple varieties, two of which are of interest to us
 
 - `unconditional`
 - `conditional`
+
+The statement `HasSum s L ↔ HasSum' s L` is not true because `HasSum` defaults to `unconditional`.
+When using `conditional ℕ`, it coincides with our `HasSum'` as proved in `hasSum_iff_hasSum'`.
+
+mathlib has very little API for conditional summation.
+
+Here are some bits from the documentation that is helpful to get the picture.
+Notice that `L` refers to a `SummationFilter`.
+
+From the documentation of `HasSum`:
+
+  By default `L` is the `unconditional` one, corresponding to the limit of all finite sets towards the entire type. So we take the sum over bigger and bigger finite sets. This sum operation is invariant under permuting the terms (while sums for more general summation filters usually are not).
+
+Documentation of `SummationFilter.unconditional`:
+
+  **Unconditional summation**: a function on `β` is said to be *unconditionally summable* if its partial sums over finite subsets converge with respect to the `atTop` filter.
+
+Documentation of `SummationFilter.unconditional`:
+
+  **Conditional summation**, for ordered types `β` such that closed intervals `[x, y]` are finite: this corresponds to limits of finite sums over larger and larger intervals.
+
+Documentation of `SummationFilter.conditional_filter_eq_map_range`:
+
+  Conditional summation over `ℕ` is given by limits of sums over `Finset.range n` as `n → ∞`.
 -/
 
 #check HasSum
+#check SummationFilter.conditional_filter_eq_map_range
 
-/-
-Not true because we need the conditional summation filter from the documentation of `HasSum`:
+@[expose]
+public section
 
-By default `L` is the `unconditional` one, corresponding to the limit of all finite sets towards
-the entire type. So we take the sum over bigger and bigger finite sets. This sum operation is
-invariant under permuting the terms (while sums for more general summation filters usually are not).
--/
--- open Finset in
--- theorem hasSum_iff_hasSum'_bad : HasSum s L ↔ HasSum' s L := by
---   constructor
---   · intro h
---     have := summable_norm_iff.mpr h.summable
---     rw [hasSum_iff_tendsto_nat_of_summable_norm this] at h
---     exact h
---   · intro h
---     unfold HasSum
---     simp [SummationFilter.unconditional]
---     unfold HasSum' at h
---     rw [Metric.tendsto_atTop] at *
---     intro ε hε
---     specialize h ε hε
---     obtain ⟨N, h⟩ := h
---     refine ⟨range N, ?_⟩
---     intro S hS
---     -- S can be pathological and choose elements from the series
---     by_cases hS2 : S.Nonempty
---     · specialize h (max N (S.max' hS2 + 1)) (by simp)
---       have : S ⊆ range (max N (S.max' hS2 + 1))
---       · rw [subset_range]
---         intro x hx
---         apply lt_max_of_lt_right
---         simp [le_max' S x hx]
---       sorry -- this is not possible without 0 ≤ s
-
-open SummationFilter
+open Finset Filter Topology SummationFilter
 
 theorem hasSum_iff_hasSum' : HasSum s L (conditional ℕ) ↔ HasSum' s L := by
   unfold HasSum
@@ -109,10 +103,9 @@ theorem summable_iff_summable' : Summable s (conditional ℕ) ↔ Summable' s :=
 Other interesting API
 -/
 
-#check tendsto_le_of_eventuallyLE
-#check tendsto_pow_atTop_nhds_zero_iff
-
 /-
-Cauchy product
+## Cauchy product
+
+https://en.wikipedia.org/wiki/Cauchy_product
 -/
 #check tsum_mul_tsum_eq_tsum_sum_antidiagonal_of_summable_norm

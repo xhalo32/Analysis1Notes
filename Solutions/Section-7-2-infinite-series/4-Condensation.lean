@@ -161,7 +161,6 @@ theorem summable_condensed (a_nonneg : 0 ≤ a) (a_anti : Antitone a) (h : Summa
     intro j hj
     apply a_nonneg
 
-
 theorem summable_iff_condensed (a_nonneg : 0 ≤ a) (a_anti : Antitone a) : Summable' a ↔ Summable' (fun n => 2^n * a (2^n)) := by
   exact ⟨summable_condensed a_nonneg a_anti, summable_of_condensed a_nonneg a_anti⟩
 
